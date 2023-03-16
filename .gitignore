@@ -1,0 +1,12 @@
+/data
+/datasetOxford
+/FatSpitter
+/Hela_4c_160
+/logs/*
+saved_images/*
+*.zip
+*.sh
+*.tar
+*.png
+.idea
+__pycache__
