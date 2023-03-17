@@ -66,3 +66,6 @@ with torch.no_grad():
 # Convert the segmented mask tensor to a NumPy array
 plt.imshow(mask, cmap='Greys')
 plt.show()
+final_image = torchvision.utils.draw_segmentation_masks(torch.tensor(image).unsqueeze(0).repeat(3, 1, 1).cpu(),torch.tensor(mask.astype(bool)).cpu(),alpha=0.3,colors="orange")
+plt.imshow(final_image.permute(1, 2, 0))
+plt.show()
