@@ -19,8 +19,8 @@ transform = A.Compose(
      ]
 )
 
-image = Image.open("Hela_4c_160/Test_large_image/ROI_1416-1932-171.tiff")
-# image = Image.open("Hela_4c_160/Test_large_image/ROI_1656-6756-329.tiff")
+# image = Image.open("Hela_4c_160/Test_large_image/ROI_1416-1932-171.tiff")
+image = Image.open("Hela_4c_160/Test_large_image/ROI_1656-6756-329.tiff")
 image.seek(119)
 image = image.convert('L')
 # image = np.array(image.convert('L'))
@@ -30,13 +30,13 @@ image = image.convert('L')
 
 model = UNet().to(DEVICE)
 model.eval()
-load_checkpoint(torch.load("my_checkpoint.pth.tar"), model)
+load_checkpoint(torch.load("20epochs.pth.tar"), model)
 patch_size = 160
 mask = np.zeros_like(image)
 
 image = np.array(image)
 
-image = scipy.ndimage.correlate(image,np.array([[0.0625, 0.125, 0.0625],
+image = scipy.ndimage.convolve(image,np.array([[0.0625, 0.125, 0.0625],
                                               [0.125, 0.25, 0.125],
                                               [0.0625, 0.125, 0.0625]]),
                                mode="nearest")
