@@ -5,9 +5,9 @@ from OxfordPetDataset import OxfordIIITPet
 from torch.utils.data import DataLoader
 from HelaDataset import HelaDataset
 from tqdm import tqdm
-def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
+def save_checkpoint(state,epoch=0, filename="my_checkpoint.pth.tar"):
     #print("=> Saving checkpoint")
-    torch.save(state, filename)
+    torch.save(state, str(epoch)+filename)
 
 def load_checkpoint(checkpoint, model):
     print("=> Loading checkpoint")
@@ -30,9 +30,11 @@ def get_loaders(
     elif dataset == "hela":
         train_ds = HelaDataset(root="./", transforms=train_transform, split="train")
         test_ds = HelaDataset(root="./", transforms=test_transform, split="test")
-        train_ds, val_ds = torch.utils.data.random_split(train_ds,
-                                                         lengths=[int(len(train_ds) * 0.9), int(len(train_ds) * 0.1)],
-                                                         generator=torch.Generator().manual_seed(41))
+        # train_ds, val_ds = torch.utils.data.random_split(train_ds,
+        #                                                  lengths=[int(len(train_ds) * 0.9), int(len(train_ds) * 0.1)],
+        #                                                  generator=torch.Generator().manual_seed(41))
+        val_ds = HelaDataset(root="./", transforms=test_transform, split="val")
+
     train_loader = DataLoader(
         train_ds,
         batch_size=batch_size,
@@ -74,10 +76,10 @@ def check_accuracy(loader, model, device="cuda"):
             preds = (preds > 0.5).float()
             num_correct += (preds == y).sum()
             num_pixels += torch.numel(preds)
-            dice_score += (2 * (preds * y).sum()+ 1e-8) / (
+            dice_score += (2 * (preds * y).sum()) / (
                 (preds + y).sum() + 1e-8
             )
-            IoU += ((preds * y).sum()+ 1e-8)/((preds+y-preds * y).sum()+ 1e-8)
+            IoU += ((preds * y).sum())/((preds+y-preds * y).sum()+ 1e-8)
 
             intersection = (preds * y).sum()+ 1e-8
             union = torch.logical_or(preds, y).sum()+ 1e-8
