@@ -78,6 +78,82 @@ def conv_layer(in_channels, out_channels, kernel_size=3):
               nn.ReLU(inplace=True)]
     return nn.Sequential(*layers)
 
+class UNet_v2(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.maxpool = nn.MaxPool2d(2)
+        self.conv1 = double_conv_block(1,64, pool=False)
+        self.conv2 = double_conv_block(64,128, pool=False)
+        self.conv3 = double_conv_block(128,256, pool=False)
+        self.conv4 = double_conv_block(256,512, pool=False)
+        self.dropout = nn.Dropout(0.5)
+        self.deconv1= nn.ConvTranspose2d(512,256, kernel_size=2, stride=2)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv7= double_conv_block(512,256,pool=False)
+        self.deconv2= nn.ConvTranspose2d(256,128, kernel_size=2, stride=2)
+        self.conv8= double_conv_block(256,128,pool=False)
+        self.deconv3= nn.ConvTranspose2d(128,64, kernel_size=2, stride=2)
+        self.conv9= double_conv_block(128,64,pool=False)
+        self.segmenter = nn.Conv2d(64,1,kernel_size=1)
+
+    def forward(self, x):
+
+
+        x1 = self.conv1(x)
+        x2 = self.conv2(self.maxpool(x1))
+        x3 = self.conv3(self.maxpool(x2))
+        x = self.dropout(x3)
+        x = self.conv4(self.maxpool(x))
+        # x = self.relu(self.deconv1(x))
+        x = self.deconv1(x)
+        x = self.conv7(torch.cat((x3,x),dim=1))
+        x = self.deconv2(x)
+        x = self.conv8(torch.cat((x2,x),dim=1))
+        x = self.deconv3(x)
+        x = self.conv9(torch.cat((x1,x),dim=1))
+        x = self.segmenter(x)
+        return x
+
+
+class UNet_v3(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.maxpool = nn.MaxPool2d(2)
+        self.conv1 = double_conv_block(1,64, pool=False)
+        self.conv2 = double_conv_block(64,128, pool=False)
+        self.conv3 = double_conv_block(128,256, pool=False)
+        self.conv4 = double_conv_block(256,512, pool=False)
+        self.conv5 = double_conv_block(512,1024, pool=False)
+        self.dropout = nn.Dropout(0.5)
+        self.deconv1= nn.ConvTranspose2d(1024,512, kernel_size=2, stride=2)
+        self.conv6= double_conv_block(1024,512,pool=False)
+        self.deconv2= nn.ConvTranspose2d(512,256, kernel_size=2, stride=2)
+        self.conv7= double_conv_block(512,256,pool=False)
+        self.deconv3= nn.ConvTranspose2d(256,128, kernel_size=2, stride=2)
+        self.conv8= double_conv_block(256,128,pool=False)
+        self.deconv4= nn.ConvTranspose2d(128,64, kernel_size=2, stride=2)
+        self.conv9= double_conv_block(128,64,pool=False)
+        self.segmenter = nn.Conv2d(64,1,kernel_size=1)
+
+    def forward(self, x):
+        x1 = self.conv1(x)
+        x2 = self.conv2(self.maxpool(x1))
+        x3 = self.conv3(self.maxpool(x2))
+        x4 = self.conv4(self.maxpool(x3))
+        x = self.dropout(x4)
+        x = self.conv5(self.maxpool(x))
+        x = self.dropout(x)
+        x = self.deconv1(x)
+        x = self.conv6(torch.cat((x4,x),dim=1))
+        x = self.deconv2(x)
+        x = self.conv7(torch.cat((x3,x),dim=1))
+        x = self.deconv3(x)
+        x = self.conv8(torch.cat((x2,x),dim=1))
+        x = self.deconv4(x)
+        x = self.conv9(torch.cat((x1,x),dim=1))
+        x = self.segmenter(x)
+        return x
+
 class adapted_UNet(nn.Module):
     def __init__(self):
         super().__init__()
@@ -145,12 +221,12 @@ class fat_UNet_non_refined(nn.Module):
     def __init__(self):
         super().__init__()
         self.maxpool = nn.MaxPool2d(2)
-        self.conv1 = nn.Sequential(conv_layer(3,32,kernel_size=5),conv_layer(32,32,kernel_size=6))
+        self.conv1 = nn.Sequential(conv_layer(1,32,kernel_size=5),conv_layer(32,32,kernel_size=6))
         self.conv2 = nn.Sequential(conv_layer(32,16,kernel_size=12),conv_layer(16,16,kernel_size=24))
         self.conv3 = nn.Sequential(conv_layer(16,8,kernel_size=48),conv_layer(8,8,kernel_size=96))
         self.conv4 = nn.Sequential(conv_layer(8,10,kernel_size=122),conv_layer(10,10,kernel_size=160))
         self.conv5 = nn.Sequential(conv_layer(10,20,kernel_size=154),conv_layer(20,20,kernel_size=160))
-
+        self.dropout = nn.Dropout(0.5)
         self.deconv1= nn.Sequential(nn.Conv2d(20,10, kernel_size=3, stride=1, padding="same"))
         self.conv6= nn.Sequential(conv_layer(20,10,kernel_size=113),conv_layer(10,10,kernel_size=160))#kernels recalculate
         self.deconv2= nn.Sequential(nn.Conv2d(10,8, kernel_size=3, stride=1, padding="same"))
@@ -166,7 +242,9 @@ class fat_UNet_non_refined(nn.Module):
         x2 = self.conv2(x1)
         x3 = self.conv3(x2)
         x4 = self.conv4(x3)
-        x = self.conv5(x4)
+        x = self.dropout(x4)
+        x = self.conv5(x)
+        x = self.dropout(x)
         x = self.deconv1(x)
         x = self.conv6(torch.cat((x4,x),dim=1))
         x = self.deconv2(x)
