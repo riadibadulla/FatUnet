@@ -20,10 +20,11 @@ class HelaDataset(VisionDataset):
         self._images_folder = self._base_folder + "trainingImages_4c_160/"
         self._segs_folder = self._base_folder + "trainingLabels_4c_160/"
         self.split = split
-        self._allimages = glob.glob(self._images_folder+"*")
-        self._segs = glob.glob(self._segs_folder+"*")
+        self._allimages = sorted(glob.glob(self._images_folder+"*"))
+        self._segs = sorted(glob.glob(self._segs_folder+"*"))
         self._images = []
-        self.test_slices = ["Slice_"+"{:03d}".format(i) for i in range(1,301,10)]
+        self.test_slices = ["Slice_"+"{:03d}".format(i) for i in range(3,303,10)]
+        self.val_slices = ["Slice_"+"{:03d}".format(i) for i in range(5,301,20)]
         if split == "manual_test":
             for image in self._allimages:
                 if "Slice_119" in image:
@@ -34,10 +35,20 @@ class HelaDataset(VisionDataset):
                     if slice_name in image:
                         self._images.append(image)
                         break
+        if split == "val":
+            for image in self._allimages:
+                for slice_name in self.val_slices:
+                    if slice_name in image:
+                        self._images.append(image)
+                        break
         if split == "train":
             for image in self._allimages:
                 self._images.append(image)
                 for slice_name in self.test_slices:
+                    if slice_name in image:
+                        self._images.pop()
+                        break
+                for slice_name in self.val_slices:
                     if slice_name in image:
                         self._images.pop()
                         break
