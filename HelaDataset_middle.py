@@ -20,8 +20,8 @@ class HelaDataset(VisionDataset):
         self._images_folder = self._base_folder + "trainingImages_4c_160/"
         self._segs_folder = self._base_folder + "trainingLabels_4c_160/"
         self.split = split
-        self._allimages = glob.glob(self._images_folder+"*")
-        self._segs = glob.glob(self._segs_folder+"*")
+        self._allimages = sorted(glob.glob(self._images_folder+"*"))
+        self._segs = sorted(glob.glob(self._segs_folder+"*"))
         self._images = []
         self.test_slices = ["Slice_"+"{:03d}".format(i) for i in range(3,303,10)]
         self.val_slices = ["Slice_"+"{:03d}".format(i) for i in range(5,301,20)]
