@@ -5,7 +5,7 @@ import numpy as np
 from PIL import Image
 from torchvision.datasets.vision import VisionDataset
 import glob
-class HelaDataset(VisionDataset):
+class HelaDataset_middle(VisionDataset):
 
     def __init__(
             self,
@@ -13,7 +13,8 @@ class HelaDataset(VisionDataset):
             transforms: Optional[Callable] = None,
             transform: Optional[Callable] = None,
             target_transform: Optional[Callable] = None,
-            split='train'
+            split='train',
+            slice=None
     ):
         super().__init__(root, transforms=transforms, transform=transform, target_transform=target_transform)
         self._base_folder =  "Hela_4c_160/"
@@ -26,9 +27,14 @@ class HelaDataset(VisionDataset):
         self.test_slices = ["Slice_"+"{:03d}".format(i) for i in range(3,303,10)]
         self.val_slices = ["Slice_"+"{:03d}".format(i) for i in range(5,301,20)]
         self.train_slices = ["Slice_"+"{:03d}".format(i) for i in range(97,183,2) if i%100%10!=1 and i%100%10!=5]
+        # self.manual_slices = ["Slice_"+"{:03d}".format(i) for i in range(97,183,2)]
+        # if split == "manual_test":
+        #     for image in self._allimages:
+        #         if "Slice_119" in image or "Slice_121" in image:
+        #             self._images.append(image)
         if split == "manual_test":
             for image in self._allimages:
-                if "Slice_119" in image:
+                if "Slice_"+"{:03d}".format(slice) in image:
                     self._images.append(image)
         if split == "all_images":
             for image in self._allimages:
