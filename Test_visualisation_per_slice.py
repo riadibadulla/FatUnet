@@ -27,7 +27,13 @@ PIN_MEMORY = True
 LOAD_MODEL = True
 NUMBER_OF_PATCHES_IN_SLICE = 529
 
-def get_metrics(loader, model, device="cuda"):
+def get_metrics(model, device="cuda"):
+    transform = A.Compose(
+        [A.Resize(160, 160),
+         A.Normalize(mean=(0.6379), std=(0.0855)),
+         ToTensorV2(),
+         ]
+    )
     model.eval()
     dice_score_list = []
     IoU_list = []
@@ -39,32 +45,32 @@ def get_metrics(loader, model, device="cuda"):
     acc = 0
     with torch.no_grad():
         slice_wise_batch = 1
-        for x, y in tqdm(loader):
+        for slice in range(119,301,2):
+            IoU = []
+            num_correct = 0
+            num_pixels = 0
+            dice_score = 0
+            loader = get_manual_loader_hela(BATCH_SIZE, transform, NUM_WORKERS, PIN_MEMORY,slice)
+            for x, y in tqdm(loader):
 
-            x = x.to(device)
-            y = y.to(device)
-            preds = torch.sigmoid(model(x))
-            preds = (preds > 0.5).float()
-            num_correct += (preds == y).sum()
-            num_pixels += torch.numel(preds)
-            dice_score += (2 * (preds * y).sum()+ 1e-8) / (
-                (preds + y).sum() + 1e-8
-            )
-            IoU += ((preds * y).sum())/((preds+y-preds * y).sum()+ 1e-8)
-            # intersection = (preds * y).sum()+ 1e-8
-            # union = torch.logical_or(preds, y).sum()+ 1e-8
-            # iou += intersection / union
-            if slice_wise_batch == 22:
-                slice_wise_batch = 0
-                acc_list.append((num_correct/num_pixels*100).item())
-                dice_score_list.append((dice_score/23).item())
-                IoU_list.append((IoU/23).item())
-                IoU = 0
-                num_correct = 0
-                num_pixels = 0
-                dice_score = 0
-            else:
-                slice_wise_batch += 1
+                x = x.to(device)
+                y = y.to(device)
+                preds = torch.sigmoid(model(x))
+                preds = (preds > 0.5).float()
+                num_correct += (preds == y).sum()
+                num_pixels += torch.numel(preds)
+                dice_score += (2 * (preds * y).sum()+ 1e-8) / (
+                    (preds + y).sum() + 1e-8
+                )
+                IoU.append((((preds * y).sum())/((preds+y-preds * y).sum()+ 1e-8)).item())
+                # intersection = (preds * y).sum()+ 1e-8
+                # union = torch.logical_or(preds, y).sum()+ 1e-8
+                # iou += intersection / union
+            acc_list.append((num_correct/num_pixels*100).item())
+            dice_score_list.append((dice_score/23).item())
+            IoU_list.append(sum(IoU)/len(IoU))
+            print(f"Slice:{slice}: iou:{sum(IoU)/len(IoU)}")
+
     return acc_list, dice_score_list, IoU_list
 
 def visualise_the_metric(metric,name_of_metric,title):
@@ -73,7 +79,7 @@ def visualise_the_metric(metric,name_of_metric,title):
     # test = [x for x in range(1, 300, 10)]
     # x_axis = [x for x in x_axis if x not in test]
     # x_axis = [x for x in x_axis if x not in val]
-    x_axis = [i for i in range(1,301,10)]
+    x_axis = [i for i in range(1,301,2)]
     y_axis = metric
     plt.title("epoch: " + title)
     plt.xlabel("Slice")
@@ -86,30 +92,14 @@ def visualise_the_metric(metric,name_of_metric,title):
 
 def main():
 
-    train_transform = A.Compose(
-        [A.Resize(160, 160),
-         A.Normalize(mean=(0.6379), std=(0.0855)),
-         ToTensorV2(),
-         ]
-    )
-    val_transforms = train_transform
-    test_transforms = val_transforms
 
     model = UNet_v3().to(DEVICE)
 
-    train_loader, val_loader, test_loader = get_loaders(
-        BATCH_SIZE,
-        train_transform,
-        test_transforms,
-        NUM_WORKERS,
-        PIN_MEMORY,
-        "hela"
-    )
     #29,21,8
     #Load the weights you need
-    for i in range(0,30):
-        load_checkpoint(torch.load("v3weights/"+str(i)+"batch=32my_checkpoint.pth.tar"), model)
-        acc, dice, iou = get_metrics(test_loader, model, device=DEVICE)
+    for i in range(19,20):
+        load_checkpoint(torch.load(str(i)+"my_checkpoint.pth.tar"), model)
+        acc, dice, iou = get_metrics(model, device=DEVICE)
         visualise_the_metric(iou, "IoU", str(i+1))
 
 
