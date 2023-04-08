@@ -18,7 +18,7 @@ print(f"using: {DEVICE}")
 LEARNING_RATE = 1e-4
 #Make sure that batch is exaclty equal to the number of patches in the slice
 # BATCH_SIZE = 529
-BATCH_SIZE = 23
+BATCH_SIZE = 32
 NUM_EPOCHS = 1
 NUM_WORKERS = 2
 IMAGE_HEIGHT = 160
@@ -45,12 +45,14 @@ def get_metrics(model, device="cuda"):
     acc = 0
     with torch.no_grad():
         slice_wise_batch = 1
-        for slice in range(119,301,2):
+        for slice in range(1,301,2):
             IoU = []
             num_correct = 0
             num_pixels = 0
             dice_score = 0
             loader = get_manual_loader_hela(BATCH_SIZE, transform, NUM_WORKERS, PIN_MEMORY,slice)
+            intersection = 0
+            union = 0
             for x, y in tqdm(loader):
 
                 x = x.to(device)
@@ -62,14 +64,17 @@ def get_metrics(model, device="cuda"):
                 dice_score += (2 * (preds * y).sum()+ 1e-8) / (
                     (preds + y).sum() + 1e-8
                 )
-                IoU.append((((preds * y).sum())/((preds+y-preds * y).sum()+ 1e-8)).item())
+                # IoU.append((((preds * y).sum())/((preds+y-preds * y).sum()+ 1e-8)).item())
+                intersection+=(preds * y).sum().item()
+                union+=(preds+y-preds * y).sum().item()
                 # intersection = (preds * y).sum()+ 1e-8
                 # union = torch.logical_or(preds, y).sum()+ 1e-8
                 # iou += intersection / union
+            iou = intersection/(union+1e-8)
             acc_list.append((num_correct/num_pixels*100).item())
             dice_score_list.append((dice_score/23).item())
-            IoU_list.append(sum(IoU)/len(IoU))
-            print(f"Slice:{slice}: iou:{sum(IoU)/len(IoU)}")
+            IoU_list.append(iou)
+            print(f"Slice:{slice}: iou:{iou}")
 
     return acc_list, dice_score_list, IoU_list
 
