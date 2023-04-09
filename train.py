@@ -5,7 +5,7 @@ from albumentations.pytorch import ToTensorV2
 from tqdm import tqdm
 import torch.nn as nn
 import torch.optim as optim
-from fatunetmodel import UNet
+from fatunetmodel import UNet_v3
 from utils import *
 from torch.utils.tensorboard import SummaryWriter
 writer = SummaryWriter(log_dir="logs/")
@@ -20,11 +20,12 @@ NUM_WORKERS = 2
 IMAGE_HEIGHT = 160
 IMAGE_WIDTH = 160
 PIN_MEMORY = True
-LOAD_MODEL = True
+LOAD_MODEL = False
 
 def train_fn(loader, model, optimizer, loss_fn, scaler, epoch=0):
     loop = tqdm(loader, desc="Epoch"+str(epoch+1))
-
+    train_union = 0
+    train_intersection = 0
     for batch_idx, (data, targets) in enumerate(loop):
         data = data.to(device=DEVICE)
         targets = targets.to(device=DEVICE)
@@ -33,17 +34,22 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, epoch=0):
         with torch.cuda.amp.autocast():
             predictions = model(data)
             loss = loss_fn(predictions, targets)
-
         # backward
         optimizer.zero_grad()
         scaler.scale(loss).backward()
         scaler.step(optimizer)
         scaler.update()
-
+        preds = torch.sigmoid(predictions)
+        preds = (preds > 0.5).float()
+        train_intersection += ((preds * targets).sum()).item()
+        train_union += (preds + targets - preds * targets).sum().item()
         # update tqdm loop
         loop.set_postfix(loss=loss.item())
+        loop.set_postfix(train_Iou = train_intersection/(train_union+1e-8))
         writer.add_scalar("train loss", loss.item())
         writer.flush()
+        # print(train_iou.item()/(batch_idx+1))
+        # loop.set_description("Epoch"+str(epoch+1)+"  tr_IOU:"+str())
 
 
 def main():
@@ -77,9 +83,9 @@ def main():
     val_transforms = train_transform
 
     test_transforms = val_transforms
-    model = UNet().to(DEVICE)
+    model = UNet_v3().to(DEVICE)
     loss_fn = nn.BCEWithLogitsLoss()
-    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-4)
 
     train_loader, val_loader, test_loader = get_loaders(
         BATCH_SIZE,
@@ -91,8 +97,9 @@ def main():
     )
 
     if LOAD_MODEL:
-        load_checkpoint(torch.load("my_checkpoint.pth.tar"), model)
-    check_accuracy(test_loader, model, device=DEVICE)
+        load_checkpoint(torch.load("batch=32my_checkpoint.pth.tar"), model)
+    # check_accuracy(test_loader, model, device=DEVICE)
+
     scaler = torch.cuda.amp.GradScaler()
 
     for epoch in range(NUM_EPOCHS):
@@ -103,7 +110,7 @@ def main():
             "state_dict": model.state_dict(),
             "optimizer":optimizer.state_dict(),
         }
-        save_checkpoint(checkpoint)
+        save_checkpoint(checkpoint, epoch=epoch,)
 
         # check accuracy
         acc, dice_score, iou = check_accuracy(val_loader, model, device=DEVICE)
@@ -111,7 +118,7 @@ def main():
         writer.add_scalar("dice_score", dice_score)
         writer.add_scalar("IoU", iou)
         writer.flush()
-
+        # check_accuracy(train_loader, model, device=DEVICE)
 
     print("EVALUATION:")
     check_accuracy(test_loader, model, device=DEVICE)
